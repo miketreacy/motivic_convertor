@@ -13,8 +13,7 @@ import (
 
 	"github.com/go-audio/aiff"
 	"github.com/go-audio/audio"
-
-	// "github.com/go-audio/midi"
+	"github.com/go-audio/midi"
 	"github.com/go-audio/wav"
 )
 
@@ -51,38 +50,6 @@ func main() {
 	}
 	defer f.Close()
 
-	var dec decoder.Decoder
-
-	type encoder interface {
-		Write(b *audio.IntBuffer) error
-		Close() error
-	}
-	var enc encoder
-
-	var buf *audio.IntBuffer
-
-	wd := wav.NewDecoder(f)
-	if wd.IsValidFile() {
-		dec = wd
-	} else {
-		f.Seek(0, 0)
-		aiffd := aiff.NewDecoder(f)
-		if !aiffd.IsValidFile() {
-			fmt.Println("input file isn't a valid wav or aiff file")
-			os.Exit(1)
-		}
-		dec = aiffd
-	}
-
-	if !dec.WasPCMAccessed() {
-		err := dec.FwdToPCM()
-		if err != nil {
-			panic(err)
-		}
-	}
-
-	format := dec.Format()
-
 	var of *os.File
 	outputFilename := fmt.Sprintf("%s.%s", *flagOutput, *flagFormat)
 
@@ -110,13 +77,42 @@ func main() {
 
 }
 
-// take a MIDI file buffer and return parsed music events (motif format)
-func decodeMIDIFile() {
+// take a MIDI file buffer and return parsed music events (Motivic.Motif format)
+func decodeMIDIFile(filePath string) ([]struct, error) {
+	f, err := os.Open(*filePath)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	decodedFile := midi.NewDecoder(f)
+	if err := p.Parse(); err != nil {
+		return nil, err
+	}
+	parsedTracks := []struct
+	for i, t := range decodedFile.Tracks {
+		parsedTrack := parseMIDITrack(t)
+		parsedTracks = append(parsedTracks, parsedTrack)
+	}
+}
+
+func parseMIDITrack(track struct) struct {
+	// serialize midi.Track to Motivic.Motif
+	parsedEvents := []struct
+	for i, e := range track.Events {
+		parsedEvent := parseMIDIEvent(e)
+		parsedEvents = append(parsedEvents, parsedEvent)
+	}
+	return struct 
+}
+
+func parseMIDIEvent(event struct) struct {
+	// serialize midi.Event to Motivic.Note
 
 }
 
 // take motif and return slice of audio buffers
 func motifAudioMap(motif []string) []audio.Buffer {
+	// for note in motif generateAudioFrequency(note)
 
 }
 
