@@ -1,8 +1,5 @@
 package main
 
-// leverage these packages for conversion:
-// "github.com/go-audio/midi"
-// "github.com/go-audio/wav"
 import (
 	"errors"
 	"flag"
@@ -10,7 +7,7 @@ import (
 	"io"
 	"os"
 	"strings"
-
+	// leverage these packages for conversion:
 	"github.com/go-audio/aiff"
 	"github.com/go-audio/audio"
 	"github.com/go-audio/midi"
@@ -29,6 +26,8 @@ var (
 )
 
 func main() {
+	// populate config values in memory
+	initConfig()
 	// set up CLI
 	flag.Parse()
 	if *flagInput == "" {
@@ -43,42 +42,31 @@ func main() {
 	default:
 		fmt.Println("Provide a valid -format flag")
 		os.Exit(1)
-	}
-	f, err := os.Open(*flagInput)
-	if err != nil {
-		panic(err)
-	}
-	defer f.Close()
+	}	
 
+	// parse the MIDI file to Motivic format
+	motifs := decodeMIDIFile(flagInput)
+	// for now Motivic only supports monophonic melodies so just grab the first track
+	motif = motifs[0]
+	// convert Motif to audio buffers
+	motifBuffers := motifAudioMap(motif)
+	// generate the audio file
 	var of *os.File
 	outputFilename := fmt.Sprintf("%s.%s", *flagOutput, *flagFormat)
 
-	// generate the sound file
-	var outName string
-	var format string
-	switch strings.ToLower(*formatFlag) {
-	case "aif", "aiff":
-		format = "aif"
-		outName = "generated.aiff"
-	default:
-		format = "wav"
-		outName = "generated.wav"
-	}
-
-	o, err := os.Create(outName)
+	o, err := os.Create(outputFilename)
 	if err != nil {
 		panic(err)
 	}
 	defer o.Close()
-	if err := encodeAudioFile(format, buf, o); err != nil {
+	if err := encodeAudioFile(format, motifBuffers, o); err != nil {
 		panic(err)
 	}
 	fmt.Println(outName, "generated")
-
 }
 
 // take a MIDI file buffer and return parsed music events (Motivic.Motif format)
-func decodeMIDIFile(filePath string) ([]struct, error) {
+func decodeMIDIFile(filePath string) ([]Motif, error) {
 	f, err := os.Open(*filePath)
 	if err != nil {
 		return nil, err
@@ -88,36 +76,53 @@ func decodeMIDIFile(filePath string) ([]struct, error) {
 	if err := p.Parse(); err != nil {
 		return nil, err
 	}
-	parsedTracks := []struct
+	parsedTracks := []Motif
 	for i, t := range decodedFile.Tracks {
-		parsedTrack := parseMIDITrack(t)
+		parsedTrack, err := parseMIDITrack(t)
+		if err != nil {
+			fmt.Println("ERROR parsing track", err)
+			panic(err)
+		}
 		parsedTracks = append(parsedTracks, parsedTrack)
 	}
+	return parsedTracks
 }
 
-func parseMIDITrack(track struct) struct {
+func parseMIDITrack(track midi.Track) (Motif, error)  {
 	// serialize midi.Track to Motivic.Motif
-	parsedEvents := []struct
-	for i, e := range track.Events {
+	parsedEvents := []MotifNote
+	for i, e := range track.AbsoluteEvents() {
 		parsedEvent := parseMIDIEvent(e)
 		parsedEvents = append(parsedEvents, parsedEvent)
 	}
-	return struct 
+	m := Motif{Notes: parsedEvents}
+	return m, nil 
 }
 
-func parseMIDIEvent(event struct) struct {
-	// serialize midi.Event to Motivic.Note
-
+func parseMIDIEvent(e midi.AbsEv) (MotifNote, error) {
+	// TODO: serialize midi.Event to Motivic.Note	
+	n := Note{
+		Value:    e.MIDINote, //TODO: convert from MIDINote to MotifNote.value 
+		Duration: e.Duration, //TODO: convert from ticks to MotifNote.duration
+	}
+	mn := MotifNote{
+		Note:         n,		
+		StartingBeat: e.Start, //TODO: convert from ticks to MotifNote.startingBeat	
+	}
+	return mn, nil
 }
 
 // take motif and return slice of audio buffers
-func motifAudioMap(motif []string) []audio.Buffer {
-	// for note in motif generateAudioFrequency(note)
-
+func motifAudioMap(m *Motif) []audio.IntBuffer {
+	buffers := []audio.Buffer
+	for n := range m.Notes {
+		buf := generateAudioFrequency()
+		buffers = append(buffers, buf)
+	}
 }
 
 // take frequency, duration, bit depth, and sample rate and return audio buffer of one note
-func generateAudioFrequency(freq float64, dur int, bitDepth int, sampleRate int) audio.Buffer {
+func generateAudioFrequency(freq float64, dur int, bitDepth int, sampleRate int) audio.IntBuffer {
 	osc := generator.NewOsc(generator.WaveSine, float64(freq), fs)
 	// our osc generates values from -1 to 1, we need to go back to PCM scale
 	factor := float64(audio.IntMaxSignedValue(biteDepth))
@@ -129,16 +134,19 @@ func generateAudioFrequency(freq float64, dur int, bitDepth int, sampleRate int)
 }
 
 // take slice of audio buffers and write audio file
-func encodeAudioFile(format string, buf audio.Buffer, w io.WriteSeeker) error {
+func encodeAudioFile(format string, bufs []audio.IntBuffer, w io.WriteSeeker) error {
 	switch format {
 	case "wav":
 		e := wav.NewEncoder(w,
-			buf.PCMFormat().SampleRate,
+			bufs[0].PCMFormat().SampleRate,
 			16,
-			buf.PCMFormat().NumChannels, 1)
-		if err := e.Write(buf.AsIntBuffer()); err != nil {
-			return err
-		}
+			bufs[0].PCMFormat().NumChannels, 1)
+		for b := range bufs {
+			err := e.Write(b.AsIntBuffer())
+			if err != nil {
+				return err
+			}
+		}		
 		return e.Close()
 	case "aiff":
 		e := aiff.NewEncoder(w,
@@ -152,5 +160,5 @@ func encodeAudioFile(format string, buf audio.Buffer, w io.WriteSeeker) error {
 	default:
 		return errors.New("unknown format")
 	}
-
 }
+
