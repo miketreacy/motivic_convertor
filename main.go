@@ -21,6 +21,9 @@ var (
 func main() {
 	// populate Motivic config values in memory
 	initMotivicConfig()
+	for _, p := range config.Pitches {
+		fmt.Printf("CONFIG PITCH:\t%+v\n", p)
+	}
 
 	// set up CLI IO
 	flag.Parse()
@@ -46,6 +49,11 @@ func main() {
 	}
 	// for now Motivic only supports monophonic melodies so just grab the first track
 	motif := motifs[0]
+
+	for _, n := range motif.Notes {
+		fmt.Printf("MOTIF NOTE:\t%+v\n", n)
+	}
+
 	// convert Motif to audio buffers
 	motifBuffers := motifAudioMap(motif)
 	// generate the audio file

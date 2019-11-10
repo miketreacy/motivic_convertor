@@ -4,3 +4,10 @@ Future site of file I/O microservice to convert files from
 2. MIDI => WAV
 3. WAV => MP3
 4. MOTIF <==> JSON
+
+## RUN
+to test MIDI => WAV conversion
+```bash
+go build
+./motivic_convertor -input test.midi -format wav -output test
+```

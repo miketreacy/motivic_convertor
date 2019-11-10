@@ -56,7 +56,7 @@ func parseMIDITrack(track *midi.Track) (Motif, error) {
 
 func parseMIDIEvent(e *midi.AbsEv) (MotifNote, error) {
 	// TODO: serialize midi.Event to Motivic.Note
-	fmt.Println("MIDI EVENT:", e)
+	fmt.Printf("MIDI EVENT:\t%+v\n", e)
 	value := e.MIDINote - 11   //TODO: make sure conversion from MIDINote to MotifNote.value is correct!
 	duration := e.Duration / 8 //TODO: conversion from ticks to MotifNote.duration is correct!
 	n := newNote(value, duration)
@@ -72,6 +72,7 @@ func motifAudioMap(m Motif) []audio.FloatBuffer {
 	var buffers []audio.FloatBuffer
 	for _, n := range m.Notes {
 		freq := getPitchFrequency(n.Name, n.Octave)
+		fmt.Println("Note", n.Name, n.Octave, n.Pitch, "freq:", freq)
 		buf := generateAudioFrequency(freq, n.Duration)
 		buffers = append(buffers, *buf)
 	}
