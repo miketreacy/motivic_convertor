@@ -10,4 +10,6 @@ to test MIDI => WAV conversion
 ```bash
 go build
 ./motivic_convertor -input test.midi -format wav -output test
+# test generated aufio file
+afplay test.wav
 ```

@@ -62,7 +62,7 @@ func parseMIDIEvent(e *midi.AbsEv) (MotifNote, error) {
 	n := newNote(value, duration)
 	mn := MotifNote{
 		Note:         n,
-		StartingBeat: e.Start, //TODO: convert from ticks to MotifNote.startingBeat
+		StartingBeat: (e.Start / 8) + 1, //TODO: convert from ticks to MotifNote.startingBeat
 	}
 	return mn, nil
 }
@@ -81,11 +81,14 @@ func motifAudioMap(m Motif) []audio.FloatBuffer {
 
 // take frequency, duration, bit depth, and sample rate and return audio buffer of one note
 func generateAudioFrequency(freq float64, dur int) *audio.FloatBuffer {
+	// TODO: duration needs to be converted to seconds?
+	// TODO: remove hardcoded bpm & time signature!!!
+	ds := getDurationInSeconds(dur, 120, TimeSignature{4, 4})
 	osc := generator.NewOsc(generator.WaveSine, float64(freq), audioSampleRate)
 	// our osc generates values from -1 to 1, we need to go back to PCM scale
 	factor := float64(audio.IntMaxSignedValue(audioBitDepth))
 	osc.Amplitude = factor
-	data := make([]float64, dur) //TODO: convert Motivic.duration to audio duration
+	data := make([]float64, ds) //TODO: convert Motivic.duration to audio duration
 	buf := &audio.FloatBuffer{Data: data, Format: audio.FormatMono44100}
 	osc.Fill(buf)
 	return buf

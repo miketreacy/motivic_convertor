@@ -67,5 +67,5 @@ func main() {
 	if err := encodeAudioFile(*flagFormat, motifBuffers, o); err != nil {
 		panic(err)
 	}
-	fmt.Println(flagOutput, "generated")
+	fmt.Println(*flagOutput, "generated")
 }

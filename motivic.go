@@ -120,3 +120,11 @@ func initMotivicConfig() {
 	// assign config values to global var
 	config = c
 }
+
+func getDurationInSeconds(dur int, bpm int, ts TimeSignature) int {
+	beatsPerSec := bpm / 60
+	secsPerBeat := 1 / beatsPerSec
+	beatsPerNote := dur / (ts.Beat * ts.Unit)
+	durSecs := secsPerBeat * beatsPerNote
+	return durSecs
+}
