@@ -18,7 +18,15 @@ var (
 	flagOutput = flag.String("output", "out", "The output filename")
 )
 
+func cleanUp() {
+	// TODO: delete own built binaries
+	// TODO: delete local audio output files
+
+}
+
 func main() {
+	cleanUp()
+
 	// populate Motivic config values in memory
 	initMotivicConfig()
 	for _, p := range config.Pitches {

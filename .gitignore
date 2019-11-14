@@ -1,0 +1,14 @@
+### IGNORING GO BINARIES
+# Ignore all 
+*
+# Unignore all with extensions
+!*.*
+# Unignore all dirs
+!*/
+###
+
+# IDE
+.vscode/
+
+# audio files
+*.wav
