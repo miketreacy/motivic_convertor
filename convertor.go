@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"os"
 
 	"github.com/go-audio/aiff"
@@ -57,38 +58,47 @@ func parseMIDITrack(track *midi.Track) (Motif, error) {
 func parseMIDIEvent(e *midi.AbsEv) (MotifNote, error) {
 	// TODO: serialize midi.Event to Motivic.Note
 	fmt.Printf("MIDI EVENT:\t%+v\n", e)
-	value := e.MIDINote - 11   //TODO: make sure conversion from MIDINote to MotifNote.value is correct!
-	duration := e.Duration / 8 //TODO: conversion from ticks to MotifNote.duration is correct!
+	// TODO: make sure conversion from MIDINote to MotifNote.value is correct!
+	value := e.MIDINote - 11
+	// TODO: conversion from ticks to MotifNote.duration is correct!
+	// TODO: make sure that these are always both ints!
+	duration := e.Duration / 8
 	n := newNote(value, duration)
 	mn := MotifNote{
-		Note:         n,
-		StartingBeat: (e.Start / 8) + 1, //TODO: convert from ticks to MotifNote.startingBeat
+		Note: n,
+		// TODO: make sure this conversion from ticks to MotifNote.startingBeat is correct
+		// TODO: make sure that these are always both ints!
+		StartingBeat: (e.Start / 8) + 1,
 	}
 	return mn, nil
 }
 
 // take motif and return slice of audio buffers
 func motifAudioMap(m Motif) []audio.FloatBuffer {
+	// TODO: remove hardcoded bpm & time signature!!!
+	bpm := 120
+	ts := TimeSignature{4, 4}
 	var buffers []audio.FloatBuffer
 	for _, n := range m.Notes {
 		freq := getPitchFrequency(n.Name, n.Octave)
-		fmt.Println("Note", n.Name, n.Octave, n.Pitch, "freq:", freq)
-		buf := generateAudioFrequency(freq, n.Duration)
+		// TODO: duration needs to be converted to seconds?
+		// TODO: fix this - right now am rounding up to nearest second
+		ds := int(math.Ceil(getDurationInSeconds(n.Duration, bpm, ts)))
+		fmt.Println("AUDIO BUFFER:", n.Name, n.Octave, n.Pitch, "freq:", freq, "secs:", ds)
+		buf := generateAudioFrequency(freq, ds)
 		buffers = append(buffers, *buf)
 	}
 	return buffers
 }
 
 // take frequency, duration, bit depth, and sample rate and return audio buffer of one note
-func generateAudioFrequency(freq float64, dur int) *audio.FloatBuffer {
-	// TODO: duration needs to be converted to seconds?
-	// TODO: remove hardcoded bpm & time signature!!!
-	ds := getDurationInSeconds(dur, 120, TimeSignature{4, 4})
+func generateAudioFrequency(freq float64, durSecs int) *audio.FloatBuffer {
 	osc := generator.NewOsc(generator.WaveSine, float64(freq), audioSampleRate)
 	// our osc generates values from -1 to 1, we need to go back to PCM scale
 	factor := float64(audio.IntMaxSignedValue(audioBitDepth))
 	osc.Amplitude = factor
-	data := make([]float64, ds) //TODO: convert Motivic.duration to audio duration
+	// TODO: figure out significance of []float64 length here - currently length is note length rounded down to seconds
+	data := make([]float64, durSecs)
 	buf := &audio.FloatBuffer{Data: data, Format: audio.FormatMono44100}
 	osc.Fill(buf)
 	return buf
