@@ -121,8 +121,8 @@ func initMotivicConfig() {
 	config = c
 }
 
-func getDurationInSeconds(dur int, bpm int, ts TimeSignature) float64 {
-	beatsPerSec := float64(bpm) / float64(60)
+func getDurationInSeconds(dur int, t Tempo, ts TimeSignature) float64 {
+	beatsPerSec := float64(t.Units) / float64(60)
 	secsPerBeat := float64(1) / float64(beatsPerSec)
 	beatsPerNote := float64(dur) / float64(ts.Beat*ts.Unit)
 	durSecs := secsPerBeat * beatsPerNote

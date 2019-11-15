@@ -14,8 +14,11 @@ import (
 	"github.com/go-audio/wav"
 )
 
+// Setting global audio config for 16/44/mono
 const audioBitDepth int = 16
 const audioSampleRate int = 44100
+
+var audioFormat = audio.FormatMono44100
 
 // take a MIDI file buffer and return parsed music events (Motivic.Motif format)
 func decodeMIDIFile(filePath *string) ([]Motif, error) {
@@ -42,6 +45,10 @@ func decodeMIDIFile(filePath *string) ([]Motif, error) {
 
 func parseMIDITrack(track *midi.Track) (Motif, error) {
 	// serialize midi.Track to Motivic.Motif
+	// TODO: remove hardcoded bpm & time signature!!!
+	// TODO: parse bpm & time signature from MIDI file
+	t := Tempo{Type: "bpm", Units: 120}
+	ts := TimeSignature{4, 4}
 	var parsedEvents []MotifNote
 	for _, e := range track.AbsoluteEvents() {
 		parsedEvent, err := parseMIDIEvent(e)
@@ -51,7 +58,7 @@ func parseMIDITrack(track *midi.Track) (Motif, error) {
 		}
 		parsedEvents = append(parsedEvents, parsedEvent)
 	}
-	m := Motif{Notes: parsedEvents}
+	m := Motif{Notes: parsedEvents, Tempo: t, TimeSignature: ts}
 	return m, nil
 }
 
@@ -75,17 +82,15 @@ func parseMIDIEvent(e *midi.AbsEv) (MotifNote, error) {
 
 // take motif and return slice of audio buffers
 func motifAudioMap(m Motif) []audio.FloatBuffer {
-	// TODO: remove hardcoded bpm & time signature!!!
-	bpm := 120
-	ts := TimeSignature{4, 4}
 	var buffers []audio.FloatBuffer
 	for _, n := range m.Notes {
 		freq := getPitchFrequency(n.Name, n.Octave)
 		// TODO: duration needs to be converted to seconds?
 		// TODO: fix this - right now am rounding up to nearest second
-		ds := int(math.Ceil(getDurationInSeconds(n.Duration, bpm, ts)))
-		fmt.Println("AUDIO BUFFER:", n.Name, n.Octave, n.Pitch, "freq:", freq, "secs:", ds)
+		ds := int(math.Ceil(getDurationInSeconds(n.Duration, m.Tempo, m.TimeSignature)))
+		fmt.Println("AUDIO NOTE DATA:", n.Name, n.Octave, n.Pitch, "freq:", freq, "secs:", ds)
 		buf := generateAudioFrequency(freq, ds)
+		fmt.Println("AUDIO BUFFER: PCM Format:", buf.PCMFormat(), "PCM Data []float64:", buf.Data)
 		buffers = append(buffers, *buf)
 	}
 	return buffers
@@ -97,9 +102,9 @@ func generateAudioFrequency(freq float64, durSecs int) *audio.FloatBuffer {
 	// our osc generates values from -1 to 1, we need to go back to PCM scale
 	factor := float64(audio.IntMaxSignedValue(audioBitDepth))
 	osc.Amplitude = factor
-	// TODO: figure out significance of []float64 length here - currently length is note length rounded down to seconds
-	data := make([]float64, durSecs)
-	buf := &audio.FloatBuffer{Data: data, Format: audio.FormatMono44100}
+	// buf.Data slice has length bitDepth * seconds
+	data := make([]float64, audioBitDepth*durSecs)
+	buf := &audio.FloatBuffer{Data: data, Format: audioFormat}
 	osc.Fill(buf)
 	return buf
 }
