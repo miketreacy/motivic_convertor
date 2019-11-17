@@ -17,6 +17,8 @@ import (
 // Setting global audio config for 16/44/mono
 const audioBitDepth int = 16
 const audioSampleRate int = 44100
+const midiNoteValueOffset int = -11
+const midiDurationValueDivisor int = 16
 
 var audioFormat = audio.FormatMono44100
 
@@ -58,24 +60,41 @@ func parseMIDITrack(track *midi.Track) (Motif, error) {
 		}
 		parsedEvents = append(parsedEvents, parsedEvent)
 	}
+	parsedEvents = insertMIDIRests(parsedEvents)
 	m := Motif{Notes: parsedEvents, Tempo: t, TimeSignature: ts}
 	return m, nil
+}
+
+func insertMIDIRests(events []MotifNote) []MotifNote {
+	// TODO: MIDI doesn't treat rest as events so
+	// fabricate rest notes to fill in the gaps in parsedEvents
+	return events
+}
+
+// converts MIDI event.MIDINote to Motivic.Note.value
+func convertMIDINote(note int) int {
+	return note + midiNoteValueOffset
+}
+
+func convertMIDINoteDuration(dur int) int {
+	return dur / midiDurationValueDivisor
 }
 
 func parseMIDIEvent(e *midi.AbsEv) (MotifNote, error) {
 	// TODO: serialize midi.Event to Motivic.Note
 	fmt.Printf("MIDI EVENT:\t%+v\n", e)
 	// TODO: make sure conversion from MIDINote to MotifNote.value is correct!
-	value := e.MIDINote - 11
+	// TODO: handle RESTS!!!
+	value := convertMIDINote(e.MIDINote)
 	// TODO: conversion from ticks to MotifNote.duration is correct!
 	// TODO: make sure that these are always both ints!
-	duration := e.Duration / 8
+	duration := convertMIDINoteDuration(e.Duration)
 	n := newNote(value, duration)
 	mn := MotifNote{
 		Note: n,
 		// TODO: make sure this conversion from ticks to MotifNote.startingBeat is correct
 		// TODO: make sure that these are always both ints!
-		StartingBeat: (e.Start / 8) + 1,
+		StartingBeat: convertMIDINoteDuration(e.Start) + 1,
 	}
 	return mn, nil
 }
@@ -89,6 +108,7 @@ func motifAudioMap(m Motif) []audio.FloatBuffer {
 		// TODO: fix this - right now am rounding up to nearest second
 		ds := int(math.Ceil(getDurationInSeconds(n.Duration, m.Tempo, m.TimeSignature)))
 		fmt.Println("AUDIO NOTE DATA:", n.Name, n.Octave, n.Pitch, "freq:", freq, "secs:", ds)
+		// TODO: handle rests!!!
 		buf := generateAudioFrequency(freq, ds)
 		fmt.Println("AUDIO BUFFER: PCM Format:", buf.PCMFormat(), "PCM Data []float64:", buf.Data)
 		buffers = append(buffers, *buf)
@@ -103,14 +123,15 @@ func generateAudioFrequency(freq float64, durSecs int) *audio.FloatBuffer {
 	factor := float64(audio.IntMaxSignedValue(audioBitDepth))
 	osc.Amplitude = factor
 	// buf.Data slice has length bitDepth * seconds
-	data := make([]float64, audioBitDepth*durSecs)
+	data := make([]float64, audioSampleRate*durSecs)
 	buf := &audio.FloatBuffer{Data: data, Format: audioFormat}
 	osc.Fill(buf)
 	return buf
 }
 
 func encodeWAVFile(bufs []audio.FloatBuffer, w io.WriteSeeker) error {
-	e := wav.NewEncoder(w, bufs[0].PCMFormat().SampleRate, 16, bufs[0].PCMFormat().NumChannels, 1)
+	// APPROACH: iterate through buffers and encode each one sequentially
+	e := wav.NewEncoder(w, bufs[0].PCMFormat().SampleRate, audioBitDepth, bufs[0].PCMFormat().NumChannels, 1)
 	for _, b := range bufs {
 		err := e.Write(b.AsIntBuffer())
 		if err != nil {
@@ -123,7 +144,7 @@ func encodeWAVFile(bufs []audio.FloatBuffer, w io.WriteSeeker) error {
 func encodeAIFFile(bufs []audio.FloatBuffer, w io.WriteSeeker) error {
 	e := aiff.NewEncoder(w,
 		bufs[0].PCMFormat().SampleRate,
-		16,
+		audioBitDepth,
 		bufs[0].PCMFormat().NumChannels)
 	for _, b := range bufs {
 		err := e.Write(b.AsIntBuffer())

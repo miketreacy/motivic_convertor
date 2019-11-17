@@ -1,0 +1,113 @@
+[
+    {
+        "id": "320Ap5y7",
+        "key": "c",
+        "mode": "chromatic",
+        "octave": {
+            "init": null,
+            "low": 3,
+            "high": 5
+        },
+        "pitch": {
+            "init": "",
+            "low": "",
+            "high": ""
+        },
+        "leap": {
+            "min": 1,
+            "max": 24
+        },
+        "timeSignature": [
+            4,
+            4
+        ],
+        "tempo": {
+            "type": "bpm",
+            "units": 120
+        },
+        "bpm": 120,
+        "length": {
+            "type": "measures",
+            "units": 2
+        },
+        "notes": [
+            {
+                "value": 65,
+                "name": "e",
+                "octave": 5,
+                "pitch": "e5",
+                "duration": 12,
+                "steps": 0,
+                "startingBeat": 1,
+                "interval": 5
+            },
+            {
+                "value": 58,
+                "name": "a",
+                "octave": 4,
+                "pitch": "a4",
+                "duration": 24,
+                "steps": -7,
+                "startingBeat": 13,
+                "interval": 10
+            },
+            {
+                "value": 39,
+                "name": "d",
+                "octave": 3,
+                "pitch": "d3",
+                "duration": 24,
+                "steps": -26,
+                "startingBeat": 37,
+                "interval": 3
+            },
+            {
+                "value": null,
+                "name": "rest",
+                "octave": null,
+                "pitch": "rest",
+                "duration": 4,
+                "steps": null,
+                "startingBeat": 61,
+                "interval": null
+            },
+            {
+                "value": 40,
+                "name": "d#",
+                "octave": 3,
+                "pitch": "d#3",
+                "duration": 4,
+                "steps": -25,
+                "startingBeat": 65,
+                "interval": 4
+            },
+            {
+                "value": null,
+                "name": "rest",
+                "octave": null,
+                "pitch": "rest",
+                "duration": 32,
+                "steps": null,
+                "startingBeat": 69,
+                "interval": null
+            },
+            {
+                "value": 52,
+                "name": "d#",
+                "octave": 4,
+                "pitch": "d#4",
+                "duration": 28,
+                "steps": -13,
+                "startingBeat": 101,
+                "interval": 4
+            }
+        ],
+        "role": "theme",
+        "name": "My Random Motif_1",
+        "parent": "",
+        "saved": {
+            "local": true,
+            "cloud": false
+        }
+    }
+]

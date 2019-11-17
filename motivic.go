@@ -92,6 +92,7 @@ func getNoteNameAndOctave(value int) (string, int) {
 }
 
 func getPitchFrequency(pitch string, octave int) float64 {
+	// TODO: handle rests - where pitch and octave are nil
 	idx := Index(config.Notes, pitch)
 	return config.Frequencies[octave][idx]
 }
