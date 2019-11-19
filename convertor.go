@@ -19,12 +19,53 @@ const audioBitDepth int = 16
 const audioSampleRate int = 44100
 const midiNoteValueOffset int = -11
 const midiDurationValueDivisor int = 8
+const defaultWaveForm generator.WaveType = generator.WaveSine
+const wavFile string = "wav"
 
 var audioFormat = audio.FormatMono44100
+var waveForm = map[string]generator.WaveType{
+	"sine":     generator.WaveSine,
+	"triangle": generator.WaveTriangle,
+	"square":   generator.WaveSqr,
+	"saw":      generator.WaveSaw,
+}
+
+func convertMIDIFileToWAVFile(inputFileName string, outputFileName string, wf string) string {
+	// parse the MIDI file to Motivic format
+	motifs, err := decodeMIDIFile(inputFileName)
+	if err != nil {
+		fmt.Println("ERROR: decodeMIDIFile", err)
+		panic(err)
+	}
+	// for now Motivic only supports monophonic melodies so just grab the first track
+	motif := motifs[0]
+
+	for _, n := range motif.Notes {
+		fmt.Printf("MOTIF NOTE:\t%+v\n", n)
+	}
+
+	// convert Motif to audio buffers
+	motifBuffers := motifAudioMap(motif, wf)
+	// generate the audio file
+	fullOutputFilename := fmt.Sprintf("%s.%s", outputFileName, wavFile)
+	outputFilePath := fmt.Sprintf("./%s", fullOutputFilename)
+	fmt.Println("Output file path:", outputFilePath)
+
+	o, err := os.Create(fullOutputFilename)
+	if err != nil {
+		panic(err)
+	}
+	defer o.Close()
+	if err := encodeAudioFile(wavFile, motifBuffers, o); err != nil {
+		panic(err)
+	}
+	fmt.Println(fullOutputFilename, "generated")
+	return outputFilePath
+}
 
 // take a MIDI file buffer and return parsed music events (Motivic.Motif format)
-func decodeMIDIFile(filePath *string) ([]Motif, error) {
-	f, err := os.Open(*filePath)
+func decodeMIDIFile(filePath string) ([]Motif, error) {
+	f, err := os.Open(filePath)
 	if err != nil {
 		return nil, err
 	}
@@ -123,7 +164,7 @@ func parseMIDIEvent(e *midi.AbsEv) (MotifNote, error) {
 }
 
 // take motif and return slice of audio buffers
-func motifAudioMap(m Motif) []audio.FloatBuffer {
+func motifAudioMap(m Motif, voice string) []audio.FloatBuffer {
 	var buffers []audio.FloatBuffer
 	for _, n := range m.Notes {
 		freq := getPitchFrequency(n.Name, n.Octave)
@@ -132,16 +173,19 @@ func motifAudioMap(m Motif) []audio.FloatBuffer {
 		ds := getDurationInSeconds(n.Duration, m.Tempo, m.TimeSignature)
 		fmt.Println("AUDIO NOTE DATA:", n.Name, n.Octave, n.Pitch, "freq:", freq, "secs:", ds)
 		// TODO: handle rests!!!
-		buf := generateAudioFrequency(freq, ds)
-		fmt.Println("AUDIO BUFFER: PCM Format:", buf.PCMFormat(), "PCM Data []float64:", buf.Data)
+		buf := generateAudioFrequency(freq, ds, voice)
 		buffers = append(buffers, *buf)
 	}
 	return buffers
 }
 
 // take frequency, duration, bit depth, and sample rate and return audio buffer of one note
-func generateAudioFrequency(freq float64, durSecs float64) *audio.FloatBuffer {
-	osc := generator.NewOsc(generator.WaveSine, float64(freq), audioSampleRate)
+func generateAudioFrequency(freq float64, durSecs float64, voice string) *audio.FloatBuffer {
+	wf := waveForm[voice]
+	if wf == 0 {
+		wf = defaultWaveForm
+	}
+	osc := generator.NewOsc(wf, float64(freq), audioSampleRate)
 	// our osc generates values from -1 to 1, we need to go back to PCM scale
 	factor := float64(audio.IntMaxSignedValue(audioBitDepth))
 	osc.Amplitude = factor

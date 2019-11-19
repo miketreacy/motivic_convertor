@@ -1,9 +1,11 @@
 # MOTIVIC CONVERTOR
 Future site of file I/O microservice to convert files from
-1. MOTIF => MIDI
-2. MIDI => WAV
-3. WAV => MP3
-4. MOTIF <==> JSON
+- [x] MIDI => MOTIF
+- [ ] MOTIF => MIDI
+- [x] MOTIF => WAV
+- [ ] MOTIF => JSON
+- [ ] WAV => MP3
+
 
 ## RUN
 to test MIDI => WAV conversion

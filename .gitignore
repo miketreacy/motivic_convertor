@@ -10,5 +10,11 @@
 # IDE
 .vscode/
 
+# OS
+.DS_Store
+
 # audio files
 *.wav
+
+# app temp dir
+temp/*
