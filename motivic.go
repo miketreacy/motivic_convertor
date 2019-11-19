@@ -87,12 +87,19 @@ func Index(vs []string, t string) int {
 }
 
 func getNoteNameAndOctave(value int) (string, int) {
+	// notes with negative value are rests
+	if value < 0 {
+		return "", -1
+	}
 	note := config.Pitches[value-1]
 	return note.Name, note.Octave
 }
 
 func getPitchFrequency(pitch string, octave int) float64 {
-	// TODO: handle rests - where pitch and octave are nil
+	// handle rests - where pitch and octave are falsey
+	if pitch == "" {
+		return 0.00
+	}
 	idx := Index(config.Notes, pitch)
 	return config.Frequencies[octave][idx]
 }

@@ -18,7 +18,7 @@ import (
 const audioBitDepth int = 16
 const audioSampleRate int = 44100
 const midiNoteValueOffset int = -11
-const midiDurationValueDivisor int = 16
+const midiDurationValueDivisor int = 8
 
 var audioFormat = audio.FormatMono44100
 
@@ -47,9 +47,9 @@ func decodeMIDIFile(filePath *string) ([]Motif, error) {
 
 func parseMIDITrack(track *midi.Track) (Motif, error) {
 	// serialize midi.Track to Motivic.Motif
-	// TODO: remove hardcoded bpm & time signature!!!
-	// TODO: parse bpm & time signature from MIDI file
-	t := Tempo{Type: "bpm", Units: 120}
+	// TODO: remove hardcoded time signature - parse from MIDI file
+	bpm := track.Events[0].Bpm
+	t := Tempo{Type: "bpm", Units: int(bpm)}
 	ts := TimeSignature{4, 4}
 	var parsedEvents []MotifNote
 	for _, e := range track.AbsoluteEvents() {
@@ -60,15 +60,38 @@ func parseMIDITrack(track *midi.Track) (Motif, error) {
 		}
 		parsedEvents = append(parsedEvents, parsedEvent)
 	}
-	parsedEvents = insertMIDIRests(parsedEvents)
+	parsedEvents = getNotesWithInsertedRests(parsedEvents)
 	m := Motif{Notes: parsedEvents, Tempo: t, TimeSignature: ts}
 	return m, nil
 }
 
-func insertMIDIRests(events []MotifNote) []MotifNote {
-	// TODO: MIDI doesn't treat rest as events so
+func getNotesWithInsertedRests(events []MotifNote) []MotifNote {
+	// MIDI doesn't treat rests as events so
 	// fabricate rest notes to fill in the gaps in parsedEvents
-	return events
+	var notes []MotifNote
+	for i, e := range events {
+		beatPosition := 1
+		if i != 0 {
+			// this is the first event
+			prevNote := events[i-1]
+			beatPosition = prevNote.StartingBeat + prevNote.Duration
+		}
+		// this is not the first event
+		if e.StartingBeat != beatPosition {
+			// there is a gap where a rest should go
+			// for now, Note with negative value is a Rest
+			rest := newNote(-1, e.StartingBeat-beatPosition)
+			mn := MotifNote{
+				Note:         rest,
+				StartingBeat: beatPosition,
+			}
+			// Insert the rest before this note
+			notes = append(notes, mn)
+		}
+		// there is no gap so add the note
+		notes = append(notes, e)
+	}
+	return notes
 }
 
 // converts MIDI event.MIDINote to Motivic.Note.value
@@ -106,7 +129,7 @@ func motifAudioMap(m Motif) []audio.FloatBuffer {
 		freq := getPitchFrequency(n.Name, n.Octave)
 		// TODO: duration needs to be converted to seconds?
 		// TODO: fix this - right now am rounding up to nearest second
-		ds := int(math.Ceil(getDurationInSeconds(n.Duration, m.Tempo, m.TimeSignature)))
+		ds := getDurationInSeconds(n.Duration, m.Tempo, m.TimeSignature)
 		fmt.Println("AUDIO NOTE DATA:", n.Name, n.Octave, n.Pitch, "freq:", freq, "secs:", ds)
 		// TODO: handle rests!!!
 		buf := generateAudioFrequency(freq, ds)
@@ -117,13 +140,13 @@ func motifAudioMap(m Motif) []audio.FloatBuffer {
 }
 
 // take frequency, duration, bit depth, and sample rate and return audio buffer of one note
-func generateAudioFrequency(freq float64, durSecs int) *audio.FloatBuffer {
+func generateAudioFrequency(freq float64, durSecs float64) *audio.FloatBuffer {
 	osc := generator.NewOsc(generator.WaveSine, float64(freq), audioSampleRate)
 	// our osc generates values from -1 to 1, we need to go back to PCM scale
 	factor := float64(audio.IntMaxSignedValue(audioBitDepth))
 	osc.Amplitude = factor
 	// buf.Data slice has length bitDepth * seconds
-	data := make([]float64, audioSampleRate*durSecs)
+	data := make([]float64, int(math.Ceil(float64(audioSampleRate)*durSecs)))
 	buf := &audio.FloatBuffer{Data: data, Format: audioFormat}
 	osc.Fill(buf)
 	return buf
