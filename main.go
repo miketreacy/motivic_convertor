@@ -3,8 +3,12 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"os"
+	"os/signal"
+	"path"
 	"strings"
+	"syscall"
 )
 
 // Future site of file I/O microservice to convert files from
@@ -17,12 +21,46 @@ var (
 	flagFormat   = flag.String("format", "wav", "The format to convert to (wav or aiff)")
 	flagOutput   = flag.String("output", "out", "The output filename")
 	flagWaveForm = flag.String("waveform", "sine", "The oscillator waveform to use")
+	outputDirs   = []string{"temp/midi/", "temp/wav/", "output"}
 )
 
 func cleanUp() {
-	// TODO: delete own built binaries
-	// TODO: delete local audio output files
+	// clean up binaries now
+	cleanUpDirs()
 
+	// start goroutine to listen for process interruption/termination
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		<-sigs
+		// cleanup binaries on exit
+		cleanUpDirs()
+		os.Exit(0)
+	}()
+}
+
+func cleanUpDirs() []error {
+	// delete audio files from filesystem
+	var errs []error
+	for _, dir := range outputDirs {
+		err := cleanUpDir(dir)
+		if err != nil {
+			fmt.Println(err)
+			errs = append(errs, err)
+		}
+	}
+	return errs
+}
+
+func cleanUpDir(dir string) error {
+	names, err := ioutil.ReadDir(dir)
+	if err != nil {
+		return err
+	}
+	for _, entry := range names {
+		os.RemoveAll(path.Join([]string{dir, entry.Name()}...))
+	}
+	return nil
 }
 
 func getCLIArgs() (string, string, string, string) {
@@ -45,6 +83,7 @@ func getCLIArgs() (string, string, string, string) {
 }
 
 func main() {
+	// handle binary clean up
 	cleanUp()
 
 	// populate Motivic config values in memory

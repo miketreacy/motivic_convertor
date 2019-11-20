@@ -17,4 +17,7 @@
 *.wav
 
 # app temp dir
-temp/*
+tmp/
+
+# app binary output
+output/*
