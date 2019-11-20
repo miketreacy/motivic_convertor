@@ -21,7 +21,7 @@ var (
 	flagFormat   = flag.String("format", "wav", "The format to convert to (wav or aiff)")
 	flagOutput   = flag.String("output", "out", "The output filename")
 	flagWaveForm = flag.String("waveform", "sine", "The oscillator waveform to use")
-	outputDirs   = []string{"temp/midi/", "temp/wav/", "output"}
+	outputDirs   = []string{"tmp/midi/", "tmp/wav/", "output"}
 )
 
 func cleanUp() {
