@@ -116,7 +116,7 @@ func midiFileUploadHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Create a temporary file within our temp-images directory that follows
 	// a particular naming pattern
-	tempMIDIFile, err := writeTempFile("temp/midi", fmt.Sprintf("upload-*.midi"))
+	tempMIDIFile, err := writeTempFile("tmp/midi", fmt.Sprintf("upload-*.midi"))
 	if err != nil {
 		fmt.Println(err)
 		panic(err)
@@ -133,7 +133,7 @@ func midiFileUploadHandler(w http.ResponseWriter, r *http.Request) {
 	wavFileName := r.Form.Get("wavFileName")
 	waveFormName := r.Form.Get("myWaveForm")
 	wavFilePath := convertMIDIFileToWAVFile(tempMIDIFile.Name(), wavFileName, waveFormName)
-	tempWAVFile, err := writeTempFile("temp/wav", fmt.Sprintf("%s.wav", wavFileName))
+	tempWAVFile, err := writeTempFile("tmp/wav", fmt.Sprintf("%s.wav", wavFileName))
 	if err != nil {
 		fmt.Println(err)
 		panic(err)
