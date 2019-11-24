@@ -9,9 +9,10 @@ Future site of file I/O microservice to convert files from
 
 ## RUN
 to test MIDI => WAV conversion
-```bash
-go build
-./motivic_convertor -input test.midi -format wav -output test
-# test generated aufio file
-afplay test.wav
-```
+1. build app: `go build`
+    1. to test CLI:
+        1. `./motivic_convertor -input input/test.midi -format wav -output test`
+        1. test generated WAV file: `afplay test.wav`
+    1. to test web server:
+        1. `./motivic_convertor`
+        1. go to `localhost:8080`

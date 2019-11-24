@@ -87,11 +87,12 @@ func main() {
 	cleanUp()
 
 	// populate Motivic config values in memory
+	// another option is to read config values from the file at runtime
 	initMotivicConfig()
 
 	serve()
 
-	// iFile, oFile, wf, oFormat := getCLIArgs()
+	// iFile, oFile, wf, _ := getCLIArgs()
 
 	// convertMIDIFileToWAVFile(iFile, oFile, wf)
 

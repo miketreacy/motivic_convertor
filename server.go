@@ -12,6 +12,12 @@ import (
 
 var port string = "8080"
 
+const maxUploadSizeMb int64 = 10
+
+// 10 MB expressed with bitwise operator
+const maxUploadSizeBytes int64 = maxUploadSizeMb << 20
+const maxRequestBodySizeBytes int64 = maxUploadSizeBytes + 512
+
 // FileSystem custom file system handler
 type FileSystem struct {
 	fs http.FileSystem
@@ -37,17 +43,11 @@ func (fs FileSystem) Open(path string) (http.File, error) {
 func serve() {
 	directory := "./"
 	path := "/"
+	// serve html file in root
 	http.Handle("/", http.StripPrefix(strings.TrimRight(path, "/"), http.FileServer(http.Dir(directory))))
-	// http.HandleFunc("/", staticFileServer)
 	http.HandleFunc("/upload/midi", midiFileUploadHandler)
 	fmt.Println("...listening at localhost:" + port)
 	http.ListenAndServe(":8080", nil)
-}
-
-func staticFileServer(w http.ResponseWriter, r *http.Request) {
-	directory := "./"
-	fileServer := http.FileServer(FileSystem{http.Dir(directory)})
-	http.StripPrefix(strings.TrimRight(directory, "/"), fileServer)
 }
 
 func writeTempFile(dir string, name string) (*os.File, error) {
@@ -102,29 +102,31 @@ func serveDownloadFile(w http.ResponseWriter, r *http.Request, ts time.Time, fil
 func midiFileUploadHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("MIDI File Upload Endpoint Hit")
 	ts := time.Now()
-	r.ParseMultipartForm(10 << 20)
-	midiFile, handler, err := r.FormFile("myMIDIFile")
+	// setting max memory allocation of file to 10MB the rest will be stored in tmp files
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestBodySizeBytes)
+	r.ParseMultipartForm(maxUploadSizeBytes)
+	midiFile, fileHeader, err := r.FormFile("myMIDIFile")
 	if err != nil {
 		fmt.Println("Error Retrieving the File")
 		fmt.Println(err)
 		return
 	}
 	defer midiFile.Close()
-	fmt.Printf("Uploaded File: %+v at %v\n", handler.Filename, ts)
-	fmt.Printf("File Size: %+v\n", handler.Size)
-	fmt.Printf("MIME Header: %+v\n", handler.Header)
+	fmt.Printf("Uploaded File: %+v at %v\n", fileHeader.Filename, ts)
+	fmt.Printf("File Size: %+v\n", fileHeader.Size)
+	fmt.Printf("MIME Header: %+v\n", fileHeader.Header)
 
 	// Create a temporary file within our temp-images directory that follows
 	// a particular naming pattern
 	tempMIDIFile, err := writeTempFile("tmp/midi", fmt.Sprintf("upload-*.midi"))
 	if err != nil {
 		fmt.Println(err)
-		panic(err)
+		// panic(err)
 	}
 	tempMIDIFile, err = copyMultiPartFile(midiFile, tempMIDIFile)
 	if err != nil {
 		fmt.Println(err)
-		panic(err)
+		// panic(err)
 	}
 
 	// return that we have successfully uploaded our file!
@@ -133,20 +135,21 @@ func midiFileUploadHandler(w http.ResponseWriter, r *http.Request) {
 	wavFileName := r.Form.Get("wavFileName")
 	waveFormName := r.Form.Get("myWaveForm")
 	wavFilePath := convertMIDIFileToWAVFile(tempMIDIFile.Name(), wavFileName, waveFormName)
+	// wavFilePath := convertMIDIFileToWAVFile(midiFile.Name(), wavFileName, waveFormName)
 	tempWAVFile, err := writeTempFile("tmp/wav", fmt.Sprintf("%s.wav", wavFileName))
 	if err != nil {
 		fmt.Println(err)
-		panic(err)
+		// panic(err)
 	}
 	newWavFile, err := os.Open(wavFilePath)
 	if err != nil {
 		fmt.Println(err)
-		panic(err)
+		// panic(err)
 	}
 	tempWAVFile, err = copyFile(newWavFile, tempWAVFile)
 	if err != nil {
 		fmt.Println(err)
-		panic(err)
+		// panic(err)
 	}
 	serveDownloadFile(w, r, ts, tempWAVFile.Name())
 
