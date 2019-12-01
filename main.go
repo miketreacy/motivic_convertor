@@ -82,6 +82,11 @@ func getCLIArgs() (string, string, string, string) {
 	return *flagInput, *flagOutput, *flagWaveForm, *flagFormat
 }
 
+func runCLIApp() {
+	iFile, oFile, wf, _ := getCLIArgs()
+	convertMIDIFileToWAVFile(iFile, oFile, wf)
+}
+
 func main() {
 	// handle binary clean up
 	cleanUp()
@@ -90,10 +95,9 @@ func main() {
 	// another option is to read config values from the file at runtime
 	initMotivicConfig()
 
+	// spin up web server
 	serve()
 
-	// iFile, oFile, wf, _ := getCLIArgs()
-
-	// convertMIDIFileToWAVFile(iFile, oFile, wf)
-
+	// process CLI input
+	// runCLIApp()
 }

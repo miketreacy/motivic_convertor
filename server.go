@@ -92,9 +92,9 @@ func serveDownloadFile(w http.ResponseWriter, r *http.Request, ts time.Time, fil
 	http.ServeFile(w, r, filePath)
 
 	// // ServeContent uses the name for mime detection
-	// const name = "random.txt"
+	const name = "random.txt"
 	// // tell the browser the returned content should be downloaded
-	// w.Header().Add("Content-Disposition", "Attachment")
+	w.Header().Add("Content-Disposition", "Attachment")
 	// http.ServeContent(w, r, name, ts, content)
 }
 
@@ -116,13 +116,14 @@ func midiFileUploadHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("File Size: %+v\n", fileHeader.Size)
 	fmt.Printf("MIME Header: %+v\n", fileHeader.Header)
 
-	// Create a temporary file within our temp-images directory that follows
-	// a particular naming pattern
+	// Create a temporary file within our tmp/midi dir that follows a particular naming pattern
 	tempMIDIFile, err := writeTempFile("tmp/midi", fmt.Sprintf("upload-*.midi"))
 	if err != nil {
 		fmt.Println(err)
 		// panic(err)
 	}
+	defer tempMIDIFile.Close()
+
 	tempMIDIFile, err = copyMultiPartFile(midiFile, tempMIDIFile)
 	if err != nil {
 		fmt.Println(err)
@@ -135,7 +136,6 @@ func midiFileUploadHandler(w http.ResponseWriter, r *http.Request) {
 	wavFileName := r.Form.Get("wavFileName")
 	waveFormName := r.Form.Get("myWaveForm")
 	wavFilePath := convertMIDIFileToWAVFile(tempMIDIFile.Name(), wavFileName, waveFormName)
-	// wavFilePath := convertMIDIFileToWAVFile(midiFile.Name(), wavFileName, waveFormName)
 	tempWAVFile, err := writeTempFile("tmp/wav", fmt.Sprintf("%s.wav", wavFileName))
 	if err != nil {
 		fmt.Println(err)
