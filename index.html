@@ -6,13 +6,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta http-equiv="X-UA-Compatible" content="ie=edge" />
     <title>Motivic Convertor</title>
+    <style>
+        body {}
+    </style>
 </head>
 
 <body>
     <h1>Motivic Convertor</h1>
     <p>upload a MIDI file to convert it to a WAV file</p>
     <form enctype="multipart/form-data" action="http://localhost:8080/upload/midi" method="post">
-        <input type="file" name="myMIDIFile" />
+        <input accept="audio/midi" type="file" name="myMIDIFile" />
         <br />
         <label for="output-name">output WAV file name</label>
         <input type=text id="output-name" name="wavFileName" value="myWavFile" \>

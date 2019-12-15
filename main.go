@@ -17,6 +17,7 @@ import (
 // 3. WAV => MP3
 // 4. MOTIF <==> JSON
 var (
+	flagMode     = flag.String("mode", "http", "The app mode (cli or http)")
 	flagInput    = flag.String("input", "", "The file to convert")
 	flagFormat   = flag.String("format", "wav", "The format to convert to (wav or aiff)")
 	flagOutput   = flag.String("output", "out", "The output filename")
@@ -65,7 +66,6 @@ func cleanUpDir(dir string) error {
 
 func getCLIArgs() (string, string, string, string) {
 	// set up CLI IO
-	flag.Parse()
 	if *flagInput == "" {
 		fmt.Println("Provide an input file using the -input flag")
 		os.Exit(1)
@@ -83,8 +83,9 @@ func getCLIArgs() (string, string, string, string) {
 }
 
 func runCLIApp() {
-	iFile, oFile, wf, _ := getCLIArgs()
-	convertMIDIFileToWAVFile(iFile, oFile, wf)
+	inputFilePath, outputFile, wf, _ := getCLIArgs()
+	outputFilePath := "./output/" + outputFile + ".wav"
+	convertMIDIFileToWAVFile(inputFilePath, outputFilePath, wf)
 }
 
 func main() {
@@ -94,10 +95,16 @@ func main() {
 	// populate Motivic config values in memory
 	// another option is to read config values from the file at runtime
 	initMotivicConfig()
-
-	// spin up web server
-	serve()
+	// get any CLI args
+	flag.Parse()
 
 	// process CLI input
-	// runCLIApp()
+	if *flagMode == "cli" {
+		fmt.Println("...running app in CLI mode")
+		runCLIApp()
+	} else {
+		// spin up web server
+		fmt.Println("...running app in HTTP mode")
+		serve()
+	}
 }

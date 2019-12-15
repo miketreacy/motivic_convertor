@@ -30,7 +30,7 @@ var waveForm = map[string]generator.WaveType{
 	"saw":      generator.WaveSaw,
 }
 
-func convertMIDIFileToWAVFile(inputFileName string, outputFileName string, wf string) string {
+func convertMIDIFileToWAVFile(inputFileName string, outputFilePath string, wf string) string {
 	// parse the MIDI file to Motivic format
 	motifs, err := parseMIDIFileFromDisk(inputFileName)
 	if err != nil {
@@ -47,19 +47,15 @@ func convertMIDIFileToWAVFile(inputFileName string, outputFileName string, wf st
 	// convert Motif to audio buffers
 	motifBuffers := motifAudioMap(motif, wf)
 	// generate the audio file
-	fullOutputFilename := fmt.Sprintf("%s.%s", outputFileName, wavFile)
-	outputFilePath := fmt.Sprintf("./%s", fullOutputFilename)
-	fmt.Println("Output file path:", outputFilePath)
-
-	o, err := os.Create(fullOutputFilename)
+	outputFile, err := os.Create(outputFilePath)
 	if err != nil {
 		panic(err)
 	}
-	defer o.Close()
-	if err := encodeAudioFile(wavFile, motifBuffers, o); err != nil {
+	defer outputFile.Close()
+	if err := encodeAudioFile(wavFile, motifBuffers, outputFile); err != nil {
 		panic(err)
 	}
-	fmt.Println(fullOutputFilename, "generated")
+	fmt.Println("Audio file generated at", outputFilePath)
 	return outputFilePath
 }
 

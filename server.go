@@ -5,7 +5,6 @@ import (
 	"io/ioutil"
 	"mime/multipart"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 )
@@ -40,6 +39,7 @@ func (fs FileSystem) Open(path string) (http.File, error) {
 
 	return f, nil
 }
+
 func serve() {
 	directory := "./"
 	path := "/"
@@ -50,107 +50,62 @@ func serve() {
 	http.ListenAndServe(":8080", nil)
 }
 
-func writeTempFile(dir string, name string) (*os.File, error) {
-	// copies content of a file to a temp file
-	tempFile, err := ioutil.TempFile(dir, name)
+func saveFile(file multipart.File, handle *multipart.FileHeader, filePath string) {
+	data, err := ioutil.ReadAll(file)
 	if err != nil {
 		fmt.Println(err)
-		return nil, err
+		return
 	}
-	defer tempFile.Close()
-	return tempFile, nil
-}
-
-func copyFile(source *os.File, target *os.File) (*os.File, error) {
-	// read the contents of source file into byte array
-	fileBytes, err := ioutil.ReadAll(source)
+	err = ioutil.WriteFile(filePath, data, 0666)
 	if err != nil {
 		fmt.Println(err)
-		return nil, err
+		return
 	}
-	// write this byte array to target file
-	target.Write(fileBytes)
-	target.Close()
-	source.Close()
-	return target, nil
-}
-func copyMultiPartFile(source multipart.File, target *os.File) (*os.File, error) {
-	// read the contents of source file into byte array
-	fileBytes, err := ioutil.ReadAll(source)
-	if err != nil {
-		fmt.Println(err)
-		return nil, err
-	}
-	// write this byte array to target file
-	target.Write(fileBytes)
-	target.Close()
-	source.Close()
-	return target, nil
+	fmt.Println("Upload saved locally")
 }
 
-func serveDownloadFile(w http.ResponseWriter, r *http.Request, ts time.Time, filePath string) {
-	http.ServeFile(w, r, filePath)
-
-	// // ServeContent uses the name for mime detection
-	const name = "random.txt"
-	// // tell the browser the returned content should be downloaded
+func serveDownloadFile(w http.ResponseWriter, r *http.Request, filePath string) {
+	// tell the browser the returned content should be downloaded
 	w.Header().Add("Content-Disposition", "Attachment")
-	// http.ServeContent(w, r, name, ts, content)
+	http.ServeFile(w, r, filePath)
 }
 
 // REST API to accept files for conversion
 func midiFileUploadHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		fmt.Println(r.Method, "not accepted at upload endpoint")
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+		return
+	}
 	fmt.Println("MIDI File Upload Endpoint Hit")
+	// 1. PARSE UPLOADED FILE
+	fmt.Println("Parsing uploaded file...")
 	ts := time.Now()
-	// setting max memory allocation of file to 10MB the rest will be stored in tmp files
+	// setting max memory allocation of file to 10MB the rest will be stored automatically in tmp files
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestBodySizeBytes)
 	r.ParseMultipartForm(maxUploadSizeBytes)
-	midiFile, fileHeader, err := r.FormFile("myMIDIFile")
+	midiFile, midiFileHandle, err := r.FormFile("myMIDIFile")
 	if err != nil {
-		fmt.Println("Error Retrieving the File")
+		fmt.Println("Error parsing the file upload")
 		fmt.Println(err)
 		return
 	}
 	defer midiFile.Close()
-	fmt.Printf("Uploaded File: %+v at %v\n", fileHeader.Filename, ts)
-	fmt.Printf("File Size: %+v\n", fileHeader.Size)
-	fmt.Printf("MIME Header: %+v\n", fileHeader.Header)
+	fmt.Printf("Uploaded File: \t%+v at %v\n", midiFileHandle.Filename, ts)
+	fmt.Printf("File Size: \t%+vkb\n", midiFileHandle.Size)
+	fmt.Printf("MIME Header: \t%+v\n", midiFileHandle.Header)
+	fmt.Println("Successfully uploaded file")
 
-	// Create a temporary file within our tmp/midi dir that follows a particular naming pattern
-	tempMIDIFile, err := writeTempFile("tmp/midi", fmt.Sprintf("upload-*.midi"))
-	if err != nil {
-		fmt.Println(err)
-		// panic(err)
-	}
-	defer tempMIDIFile.Close()
+	// 2. SAVE UPLOADED MIDI FILE TO DISK
+	inputFilePath := "tmp/midi/" + midiFileHandle.Filename
+	saveFile(midiFile, midiFileHandle, inputFilePath)
 
-	tempMIDIFile, err = copyMultiPartFile(midiFile, tempMIDIFile)
-	if err != nil {
-		fmt.Println(err)
-		// panic(err)
-	}
-
-	// return that we have successfully uploaded our file!
-	fmt.Fprintf(w, "Successfully Uploaded File\n")
-	fmt.Println("tempFilePath:", tempMIDIFile.Name())
+	// 3. CONVERT MIDI FILE TO AUDIO FILE
+	fmt.Println("Converting copied file...")
 	wavFileName := r.Form.Get("wavFileName")
 	waveFormName := r.Form.Get("myWaveForm")
-	wavFilePath := convertMIDIFileToWAVFile(tempMIDIFile.Name(), wavFileName, waveFormName)
-	tempWAVFile, err := writeTempFile("tmp/wav", fmt.Sprintf("%s.wav", wavFileName))
-	if err != nil {
-		fmt.Println(err)
-		// panic(err)
-	}
-	newWavFile, err := os.Open(wavFilePath)
-	if err != nil {
-		fmt.Println(err)
-		// panic(err)
-	}
-	tempWAVFile, err = copyFile(newWavFile, tempWAVFile)
-	if err != nil {
-		fmt.Println(err)
-		// panic(err)
-	}
-	serveDownloadFile(w, r, ts, tempWAVFile.Name())
-
+	outputFilePath := "./output/" + wavFileName + ".wav"
+	wavFilePath := convertMIDIFileToWAVFile(inputFilePath, outputFilePath, waveFormName)
+	fmt.Println("Audio file written to ", wavFilePath)
+	serveDownloadFile(w, r, wavFilePath)
 }
