@@ -3,6 +3,20 @@ const apiConfig = {
     method: 'POST',
     mode: 'cors'
 };
+
+const baseURL = window.location;
+const formEl = document.querySelector("#file-upload");
+const spinnerEl = formEl.querySelector('#spinner');
+const uploadBtn = formEl.querySelector('#upload');
+const outputNameEl = formEl.querySelector("#output-name");
+const waveFormEl = formEl.querySelector("#waveform");
+const fileInputEl = formEl.querySelector("#upload-file");
+const loadingIcon = `&#8635;`;
+const messages = {
+    "arrow-up": `&#8679;`,
+    "arrow-down": `&#8681;`
+};
+
 function getApiParams(payload) {
     let { method, mode } = apiConfig;
     return {
@@ -27,18 +41,35 @@ async function awaitFetch(url, params) {
     }
 }
 
-function displayDownloadButon(url) {
-    const btn = document.querySelector('#download-file');
-    btn.addEventListener('click', e => window.location = url);
-    btn.classList.remove('hide');
+function fileInputChange(e) {
+    uploadBtn.disabled = !fileInputEl.files.length;
+}
+
+function loading(btnEl, loading = true) {
+    // TODO: make loadingIcon spin!
+    const iconEls = btnEl.querySelectorAll('.icon');
+    if (loading) {
+        iconEls.forEach(el => el.innerHTML = loadingIcon);
+    } else {
+        iconEls.forEach(el => el.innerHTML = messages[el.dataset.icon]);
+    }
 }
 
 
-async function submitUploadClick(e) {
-    const formEl = document.querySelector("#file-upload");
-    const outputNameEl = formEl.querySelector("#output-name");
-    const waveFormEl = formEl.querySelector("#waveform");
-    const fileInputEl = formEl.querySelector("#upload-file");
+function displayDownloadButon(url) {
+    const downloadBtn = document.querySelector('#download');
+    downloadBtn.href = url;
+    downloadBtn.addEventListener('click', e => {
+        downloadBtn.classList.add('hide');
+        uploadBtn.classList.remove('hide');
+    });
+    uploadBtn.classList.add('hide');
+    downloadBtn.classList.remove('hide');
+}
+
+
+async function uploadClick(e) {
+    loading(uploadBtn);
     const files = fileInputEl.files;
     const formData = new FormData();
     formData.append('myMIDIFile', files[0]);
@@ -47,9 +78,12 @@ async function submitUploadClick(e) {
     let data = await awaitFetch(...getFetchArgs(formData));
     console.log('API response from /upload/midi...');
     console.dir(data);
+    loading(uploadBtn, false);
     if (data) {
         displayDownloadButon(data.url);
     }
 }
 
-document.querySelector('#file-upload-submit').addEventListener('click', submitUploadClick);
+
+fileInputEl.addEventListener('change', fileInputChange)
+uploadBtn.addEventListener('click', uploadClick);
