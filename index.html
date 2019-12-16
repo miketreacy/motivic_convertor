@@ -7,29 +7,95 @@
     <meta http-equiv="X-UA-Compatible" content="ie=edge" />
     <title>Motivic Convertor</title>
     <style>
-        body {}
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        form,
+        fieldset {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            border: 1px dashed black;
+            padding: 10px;
+        }
+
+        input,
+        select,
+        button {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 10px;
+            margin: 10px 0;
+            cursor: pointer;
+            width: 20vw;
+        }
+
+        input[type="text"] {
+            cursor: text;
+        }
+
+        input[type="submit"],
+        button {
+            background-color: #00bfff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            min-height: 30px;
+        }
+
+        .hide {
+            display: none;
+        }
     </style>
+
 </head>
 
 <body>
     <h1>Motivic Convertor</h1>
     <p>upload a MIDI file to convert it to a WAV file</p>
-    <form enctype="multipart/form-data" action="http://localhost:8080/upload/midi" method="post">
-        <input accept="audio/midi" type="file" name="myMIDIFile" />
-        <br />
-        <label for="output-name">output WAV file name</label>
+    <!-- Async clien-side form submission -->
+    <fieldset id="file-upload">
+        <label for="upload-file">file to upload</label>
+        <input type="file" id="upload-file" accept="audio/midi" name="myMIDIFile" />
+        <label for="output-name">output WAV file name:</label>
         <input type=text id="output-name" name="wavFileName" value="myWavFile" \>
-        <br />
-        <label for="waveform">select waveform to encode with</label>
+        <label for="waveform">waveform</label>
         <select name="myWaveForm" id="waveform">
             <option value="sine">Sine</option>
             <option value="saw">Saw</option>
             <option value="square">Square</option>
             <option value="triangle">Triangle</option>
         </select>
-        <br />
-        <input type="submit" value="upload" />
-    </form>
+
+        <button id="file-upload-submit">UPLOAD</button>
+        <button id="download-file" class="hide">DOWNLOAD FILE</button>
+    </fieldset>
+
+    <div id="progress">converting uploaded file...</div>
+
+    <!-- Synchronous server form submission -->
+    <!-- <form id="file-upload" enctype="multipart/form-data" action="http://localhost:8080/upload/midi" method="post">
+        <label for="upload-file">file to upload</label>
+        <input type="file" id="upload-file" accept="audio/midi" name="myMIDIFile" />
+        <label for="output-name">output WAV file name:</label>
+        <input type=text id="output-name" name="wavFileName" value="myWavFile" \>
+        <label for="waveform">waveform</label>
+        <select name="myWaveForm" id="waveform">
+            <option value="sine">Sine</option>
+            <option value="saw">Saw</option>
+            <option value="square">Square</option>
+            <option value="triangle">Triangle</option>
+        </select>
+        <input type="submit" value="UPLOAD" />
+    </form> -->
+
+    <footer>
+        <script src="/index.js"></script>
+    </footer>
 </body>
 
 </html>

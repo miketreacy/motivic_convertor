@@ -30,7 +30,7 @@ var waveForm = map[string]generator.WaveType{
 	"saw":      generator.WaveSaw,
 }
 
-func convertMIDIFileToWAVFile(inputFileName string, outputFilePath string, wf string) string {
+func convertMIDIFileToWAVFile(inputFileName string, outputFilePath string, wf string) {
 	// parse the MIDI file to Motivic format
 	motifs, err := parseMIDIFileFromDisk(inputFileName)
 	if err != nil {
@@ -56,7 +56,6 @@ func convertMIDIFileToWAVFile(inputFileName string, outputFilePath string, wf st
 		panic(err)
 	}
 	fmt.Println("Audio file generated at", outputFilePath)
-	return outputFilePath
 }
 
 // take a MIDI file on disk and return parsed music events (Motivic.Motif format)
