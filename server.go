@@ -93,10 +93,27 @@ func serveDownloadFile(w http.ResponseWriter, r *http.Request, filePath string, 
 	http.ServeFile(w, r, filePath)
 }
 
+func conversionResponse(w http.ResponseWriter, outputFilePath string, fileName string) {
+	tsCreated := time.Now()
+	tsExpires := tsCreated.Local().Add(time.Minute * time.Duration(downloadTTLMins))
+	strExpires := tsExpires.Format(time.RFC1123)
+	fileURL := getAbsoluteURL("download/"+fileName, "")
+	data := APIResponse{URL: fileURL, CreatedTimeStamp: tsCreated}
+	var jsonData []byte
+	jsonData, _ = json.MarshalIndent(data, "", "    ")
+	w.Header().Set("Content-Type", "application/json")
+	fmt.Println(strExpires)
+	w.Header().Set("Expires", strExpires)
+	w.WriteHeader(http.StatusOK)
+	w.Write(jsonData)
+	go expireFile(outputFilePath)
+}
+
 // REST API to accept files for conversion
-// TODO: convert this to async go routine
 // TODO: zip download file if size > threshold
-// TODO: delete files after downloadTTLMins
+// TODO: accept Motivic.json files to convert to MIDI
+// TODO: accept Motivic JSON to convert to MIDI
+// TODO: accept MIDI files to convert to Motivic JSON
 func midiFileUploadHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {
 		fmt.Println(r.Method, "not accepted at upload endpoint")
@@ -123,30 +140,24 @@ func midiFileUploadHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("Successfully uploaded file")
 
 	// 2. SAVE UPLOADED MIDI FILE TO DISK
-	inputFilePath := "tmp/midi/" + midiFileHandle.Filename
+	randomString := getRandomString(8)
+	inputFilePath := "input/" + randomString + "_" + midiFileHandle.Filename
 	saveFile(midiFile, midiFileHandle, inputFilePath)
+	go expireFile(inputFilePath)
 
 	// 3. CONVERT MIDI FILE TO AUDIO FILE
 	fmt.Println("Converting copied file...")
-	wavFileName := r.Form.Get("wavFileName") + ".wav"
+	wavFileName := randomString + "_" + r.Form.Get("wavFileName") + ".wav"
 	waveFormName := r.Form.Get("myWaveForm")
 	outputFilePath := "./output/" + wavFileName
-	convertMIDIFileToWAVFile(inputFilePath, outputFilePath, waveFormName)
-	fmt.Println("WAV File created at", outputFilePath)
-
+	// channel to wait for go routine response
+	c := make(chan bool)
+	go convertMIDIFileToWAVFile(inputFilePath, outputFilePath, waveFormName, c)
+	success := <-c
 	// 4. RETURN URL OF NEW FILE
-	tsCreated = time.Now()
-	tsExpires := tsCreated.Local().Add(time.Minute * time.Duration(downloadTTLMins))
-	strExpires := tsExpires.Format(time.RFC1123)
-	fileURL := getAbsoluteURL("download/"+wavFileName, "")
-	data := APIResponse{URL: fileURL, CreatedTimeStamp: tsCreated}
-	var jsonData []byte
-	jsonData, err = json.MarshalIndent(data, "", "    ")
-	w.Header().Set("Content-Type", "application/json")
-	fmt.Println(strExpires)
-	w.Header().Set("Expires", strExpires)
-	w.WriteHeader(http.StatusOK)
-	w.Write(jsonData)
+	if success {
+		conversionResponse(w, outputFilePath, wavFileName)
+	}
 }
 
 // fileExists checks if a file exists and is not a directory before we
@@ -164,17 +175,16 @@ func fileDownloadHandler(w http.ResponseWriter, r *http.Request) {
 	fileName := paths[2:len(paths)]
 	if len(fileName) == 1 {
 		fileName := fileName[0]
+		userFileName := strings.Split(fileName, "_")[1]
 		downloadFilePath := "./output/" + fileName
 		if fileExists(downloadFilePath) {
-			serveDownloadFile(w, r, downloadFilePath, fileName)
+			serveDownloadFile(w, r, downloadFilePath, userFileName)
 		} else {
-			fmt.Println("Requested file does not exist (or is a directory)")
-			return
+			fmt.Println("Requested file does not exist or has expired")
+			http.Redirect(w, r, "/", http.StatusSeeOther)
 		}
-
 	} else {
 		fmt.Println("Bad request path")
 		http.Redirect(w, r, "/", http.StatusSeeOther)
-		return
 	}
 }

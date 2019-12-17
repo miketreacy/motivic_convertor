@@ -37,7 +37,6 @@ async function awaitFetch(url, params) {
         return await res.json();
     } catch (e) {
         console.error(e);
-        throw e;
     }
 }
 

@@ -4,11 +4,13 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"math/rand"
 	"os"
 	"os/signal"
 	"path"
 	"strings"
 	"syscall"
+	"time"
 )
 
 var (
@@ -17,8 +19,28 @@ var (
 	flagFormat   = flag.String("format", "wav", "The format to convert to (wav or aiff)")
 	flagOutput   = flag.String("output", "out", "The output filename")
 	flagWaveForm = flag.String("waveform", "sine", "The oscillator waveform to use")
-	outputDirs   = []string{"tmp/midi/", "tmp/wav/", "output"}
+	outputDirs   = []string{"input", "output"}
 )
+
+func getRandomString(length int) string {
+	rand.Seed(time.Now().UnixNano())
+	chars := []rune("ABCDEFGHIJKLMNOPQRSTUVWXYZ" +
+		"abcdefghijklmnopqrstuvwxyz" +
+		"0123456789")
+
+	var b strings.Builder
+	for i := 0; i < length; i++ {
+		b.WriteRune(chars[rand.Intn(len(chars))])
+	}
+	return b.String()
+}
+
+func expireFile(filePath string) {
+	fileTimer := time.NewTimer(60 * time.Second)
+	<-fileTimer.C
+	fmt.Println("File deleted:", filePath)
+	os.Remove(filePath)
+}
 
 func cleanUp() {
 	// clean up binaries now
@@ -80,7 +102,9 @@ func getCLIArgs() (string, string, string, string) {
 func runCLIApp() {
 	inputFilePath, outputFile, wf, _ := getCLIArgs()
 	outputFilePath := "./output/" + outputFile + ".wav"
-	convertMIDIFileToWAVFile(inputFilePath, outputFilePath, wf)
+	c := make(chan bool)
+	go convertMIDIFileToWAVFile(inputFilePath, outputFilePath, wf, c)
+	<-c
 }
 
 func main() {
