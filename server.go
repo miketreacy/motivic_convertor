@@ -1,8 +1,10 @@
 package main
 
 import (
+	"archive/zip"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"mime/multipart"
@@ -28,6 +30,8 @@ const downloadTTLMins int64 = 1
 type APIResponse struct {
 	URL              string    `json:"url"`
 	CreatedTimeStamp time.Time `json:"created"`
+	Message          string    `json:"message"`
+	Success          bool      `json:"success"`
 }
 
 // FileSystem custom file system handler
@@ -51,6 +55,62 @@ func (fs FileSystem) Open(path string) (http.File, error) {
 	}
 
 	return f, nil
+}
+
+// ZipFiles compresses one or many files into a single zip archive file.
+// Param 1: filename is the output zip file's name.
+// Param 2: files is a list of files to add to the zip.
+func zipFiles(filename string, files []string, key string) error {
+	zipFile, err := os.Create(filename)
+	if err != nil {
+		return err
+	}
+	defer zipFile.Close()
+
+	zipWriter := zip.NewWriter(zipFile)
+	defer zipWriter.Close()
+
+	// Add files to zip
+	for _, file := range files {
+		if err = addFileToZip(zipWriter, file, key); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func addFileToZip(zipWriter *zip.Writer, filePath string, key string) error {
+	fileToZip, err := os.Open(filePath)
+	if err != nil {
+		return err
+	}
+	defer fileToZip.Close()
+
+	// Get the file information
+	info, err := fileToZip.Stat()
+	if err != nil {
+		return err
+	}
+
+	header, err := zip.FileInfoHeader(info)
+	if err != nil {
+		return err
+	}
+
+	// Using FileInfoHeader() above only uses the basename of the file.
+	// To reflect dir structure, set this to the full path.
+	header.Name = getFileNameFromPath(filePath, key)
+
+	// Change to deflate to gain better compression
+	// see http://golang.org/pkg/archive/zip/#pkg-constants
+	header.Method = zip.Deflate
+
+	writer, err := zipWriter.CreateHeader(header)
+	if err != nil {
+		return err
+	}
+	_, err = io.Copy(writer, fileToZip)
+	return err
 }
 
 func serve() {
@@ -94,26 +154,37 @@ func serveDownloadFile(w http.ResponseWriter, r *http.Request, filePath string, 
 }
 
 func conversionResponse(w http.ResponseWriter, outputFilePath string, fileName string) {
+	data := APIResponse{}
 	tsCreated := time.Now()
-	tsExpires := tsCreated.Local().Add(time.Minute * time.Duration(downloadTTLMins))
-	strExpires := tsExpires.Format(time.RFC1123)
-	fileURL := getAbsoluteURL("download/"+fileName, "")
-	data := APIResponse{URL: fileURL, CreatedTimeStamp: tsCreated}
+	// conversion failed
+	if outputFilePath == "" {
+		data = APIResponse{URL: "", CreatedTimeStamp: tsCreated, Success: false, Message: "Conversion failed"}
+		w.WriteHeader(http.StatusUnprocessableEntity)
+	} else {
+		tsExpires := tsCreated.Local().Add(time.Minute * time.Duration(downloadTTLMins))
+		strExpires := tsExpires.Format(time.RFC1123)
+		fileURL := getAbsoluteURL("download/"+fileName, "")
+		data = APIResponse{URL: fileURL, CreatedTimeStamp: tsCreated, Success: true, Message: "File converted"}
+		fmt.Println(strExpires)
+		w.Header().Set("Expires", strExpires)
+		w.WriteHeader(http.StatusOK)
+	}
 	var jsonData []byte
 	jsonData, _ = json.MarshalIndent(data, "", "    ")
 	w.Header().Set("Content-Type", "application/json")
-	fmt.Println(strExpires)
-	w.Header().Set("Expires", strExpires)
-	w.WriteHeader(http.StatusOK)
 	w.Write(jsonData)
 	go expireFile(outputFilePath)
 }
 
 // REST API to accept files for conversion
-// TODO: zip download file if size > threshold
-// TODO: accept Motivic.json files to convert to MIDI
-// TODO: accept Motivic JSON to convert to MIDI
-// TODO: accept MIDI files to convert to Motivic JSON
+// TODO: handle polyphonic MIDI - support or return helpful exception response
+// TODO: clean up error-handling for http - refactor panic() to error responses
+// TODO: increase conversion types:
+// 		Motivic.json file => MIDI
+// 		Motivic JSON payload => MIDI
+// 		Motivic JSON payload => WAV
+// 		MIDI files => Motivic JSON response
+// 		MIDI files => Motivic.json file
 func midiFileUploadHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {
 		fmt.Println(r.Method, "not accepted at upload endpoint")
@@ -147,17 +218,28 @@ func midiFileUploadHandler(w http.ResponseWriter, r *http.Request) {
 
 	// 3. CONVERT MIDI FILE TO AUDIO FILE
 	fmt.Println("Converting copied file...")
-	wavFileName := randomString + "_" + r.Form.Get("wavFileName") + ".wav"
 	waveFormName := r.Form.Get("myWaveForm")
-	outputFilePath := "./output/" + wavFileName
+	outputFileName := r.Form.Get("wavFileName")
+	wavFileoutputFilePath, _ := getFilePathFromName("output", randomString, outputFileName, "wav")
 	// channel to wait for go routine response
 	c := make(chan bool)
-	go convertMIDIFileToWAVFile(inputFilePath, outputFilePath, waveFormName, c)
+	go convertMIDIFileToWAVFile(inputFilePath, wavFileoutputFilePath, waveFormName, c)
 	success := <-c
+	go expireFile(wavFileoutputFilePath)
+
 	// 4. RETURN URL OF NEW FILE
+	var zipFileOutputPath string = ""
+	var zipFileName string = ""
 	if success {
-		conversionResponse(w, outputFilePath, wavFileName)
+		zipFileOutputPath, zipFileName = getFilePathFromName("output", randomString, outputFileName, "zip")
+		filesToZip := []string{wavFileoutputFilePath}
+		if err := zipFiles(zipFileOutputPath, filesToZip, randomString); err != nil {
+			panic(err)
+		}
+		fmt.Println("Zipped File:", zipFileOutputPath)
+
 	}
+	conversionResponse(w, zipFileOutputPath, zipFileName)
 }
 
 // fileExists checks if a file exists and is not a directory before we

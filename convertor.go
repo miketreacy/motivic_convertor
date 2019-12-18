@@ -199,6 +199,16 @@ func motifAudioMap(m Motif, voice string) []audio.FloatBuffer {
 	return buffers
 }
 
+// take motif and return slice of MIDI buffers
+func motifMIDIMap(m Motif) {
+	// TODO: write this
+}
+
+// take motif and return JSON representation
+func motifJSONMap(m Motif) {
+	// TODO: write this
+}
+
 // take frequency, duration, bit depth, and sample rate and return audio buffer of one note
 func generateAudioFrequency(freq float64, durSecs float64, voice string) *audio.FloatBuffer {
 	wf := waveForm[voice]
@@ -252,4 +262,12 @@ func encodeAudioFile(format string, bufs []audio.FloatBuffer, w io.WriteSeeker) 
 	default:
 		return errors.New("unknown format")
 	}
+}
+
+func encodeMIDIFile(bufs []audio.FloatBuffer, w io.WriteSeeker) {
+	// TODO: write this
+}
+
+func encodeJSONFile(bufs []audio.FloatBuffer, w io.WriteSeeker) {
+	// TODO: write this
 }

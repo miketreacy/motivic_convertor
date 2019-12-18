@@ -35,7 +35,20 @@ func getRandomString(length int) string {
 	return b.String()
 }
 
+func getFilePathFromName(dir string, key string, fileName string, fileType string) (string, string) {
+	encodedName := key + "_" + fileName + "." + fileType
+	encodedFilePath := "./" + dir + "/" + encodedName
+	return encodedFilePath, encodedName
+}
+
+func getFileNameFromPath(path string, key string) string {
+	return strings.Split(path, key+"_")[1]
+}
+
 func expireFile(filePath string) {
+	if filePath == "" {
+		return
+	}
 	fileTimer := time.NewTimer(60 * time.Second)
 	<-fileTimer.C
 	fmt.Println("File deleted:", filePath)
