@@ -31,13 +31,20 @@ var waveForm = map[string]generator.WaveType{
 }
 
 func convertMIDIFileToWAVFile(inputFileName string, outputFilePath string, wf string, c chan<- bool) {
+	success := false
 	// parse the MIDI file to Motivic format
-	motifs, err := parseMIDIFileFromDisk(inputFileName)
+	motifs, err := parseMIDIFile(inputFileName)
 	if err != nil {
-		fmt.Println("ERROR: decodeMIDIFile", err)
-		panic(err)
+		fmt.Println("ERROR: parseMIDIFile", err)
+		c <- success
+		return
 	}
 	// for now Motivic only supports monophonic melodies so just grab the first track
+	if len(motifs) > 1 {
+		fmt.Println("ERROR: MIDI file is not monophonic")
+		c <- success
+		return
+	}
 	motif := motifs[0]
 
 	for _, n := range motif.Notes {
@@ -49,11 +56,15 @@ func convertMIDIFileToWAVFile(inputFileName string, outputFilePath string, wf st
 	// generate the audio file
 	outputFile, err := os.Create(outputFilePath)
 	if err != nil {
-		panic(err)
+		fmt.Println("ERROR:", err)
+		c <- success
+		return
 	}
 	defer outputFile.Close()
 	if err := encodeAudioFile(wavFile, motifBuffers, outputFile); err != nil {
-		panic(err)
+		fmt.Println("ERROR: encodeAudioFile", err)
+		c <- success
+		return
 	}
 	fmt.Println("Audio file generated at", outputFilePath)
 	c <- true
@@ -61,7 +72,7 @@ func convertMIDIFileToWAVFile(inputFileName string, outputFilePath string, wf st
 }
 
 // take a MIDI file on disk and return parsed music events (Motivic.Motif format)
-func parseMIDIFileFromDisk(filePath string) ([]Motif, error) {
+func parseMIDIFile(filePath string) ([]Motif, error) {
 	f, err := os.Open(filePath)
 	if err != nil {
 		return nil, err
@@ -76,30 +87,7 @@ func parseMIDIFileFromDisk(filePath string) ([]Motif, error) {
 		parsedTrack, err := parseMIDITrack(t)
 		if err != nil {
 			fmt.Println("ERROR parsing track", err)
-			panic(err)
-		}
-		parsedTracks = append(parsedTracks, parsedTrack)
-	}
-	return parsedTracks, nil
-}
-
-// take a MIDI file in memory and return parsed music events (Motivic.Motif format)
-func parseMIDIFileFromMemory(filePath string) ([]Motif, error) {
-	f, err := os.Open(filePath)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-	decodedFile := midi.NewDecoder(f)
-	if err := decodedFile.Parse(); err != nil {
-		return nil, err
-	}
-	var parsedTracks []Motif
-	for _, t := range decodedFile.Tracks {
-		parsedTrack, err := parseMIDITrack(t)
-		if err != nil {
-			fmt.Println("ERROR parsing track", err)
-			panic(err)
+			return nil, err
 		}
 		parsedTracks = append(parsedTracks, parsedTrack)
 	}
@@ -109,6 +97,12 @@ func parseMIDIFileFromMemory(filePath string) ([]Motif, error) {
 func parseMIDITrack(track *midi.Track) (Motif, error) {
 	// serialize midi.Track to Motivic.Motif
 	// TODO: remove hardcoded time signature - parse from MIDI file
+	fmt.Printf("\n*midi.Track: \t%+v\n", track)
+	printReflectionInfo(track)
+	m := Motif{}
+	if track == nil {
+		return m, fmt.Errorf("ERROR: parseMIDITrack() - track is nil")
+	}
 	bpm := track.Events[0].Bpm
 	t := Tempo{Type: "bpm", Units: int(bpm)}
 	ts := TimeSignature{4, 4}
@@ -117,12 +111,12 @@ func parseMIDITrack(track *midi.Track) (Motif, error) {
 		parsedEvent, err := parseMIDIEvent(e)
 		if err != nil {
 			fmt.Println(err)
-			panic(err)
+			return m, err
 		}
 		parsedEvents = append(parsedEvents, parsedEvent)
 	}
 	parsedEvents = getNotesWithInsertedRests(parsedEvents)
-	m := Motif{Notes: parsedEvents, Tempo: t, TimeSignature: ts}
+	m = Motif{Notes: parsedEvents, Tempo: t, TimeSignature: ts}
 	return m, nil
 }
 

@@ -19,5 +19,8 @@
 # app temp dir
 tmp/
 
+# app binary input
+input/*
+
 # app binary output
 output/*

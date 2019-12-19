@@ -8,9 +8,12 @@ import (
 	"os"
 	"os/signal"
 	"path"
+	"reflect"
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/go-audio/midi"
 )
 
 var (
@@ -21,6 +24,24 @@ var (
 	flagWaveForm = flag.String("waveform", "sine", "The oscillator waveform to use")
 	outputDirs   = []string{"input", "output"}
 )
+
+func printReflectionInfo(t *midi.Track) {
+	// expect CustomStruct if non pointer
+	fmt.Println("Actual type is:", reflect.TypeOf(t))
+
+	// expect struct if non pointer
+	fmt.Println("Value type is:", reflect.ValueOf(t).Kind())
+
+	if reflect.ValueOf(t).Kind() == reflect.Ptr {
+		// expect: CustomStruct
+		fmt.Println("Indirect type is:", reflect.Indirect(reflect.ValueOf(t)).Kind()) // prints interface
+
+		// expect: struct
+		fmt.Println("Indirect value type is:", reflect.Indirect(reflect.ValueOf(t)).Kind()) // prints interface
+	}
+
+	fmt.Println("")
+}
 
 func getRandomString(length int) string {
 	rand.Seed(time.Now().UnixNano())
@@ -45,8 +66,18 @@ func getFileNameFromPath(path string, key string) string {
 	return strings.Split(path, key+"_")[1]
 }
 
+// fileExists checks if a file exists and is not a directory before we
+// try using it to prevent further errors.
+func fileExists(filename string) bool {
+	info, err := os.Stat(filename)
+	if os.IsNotExist(err) {
+		return false
+	}
+	return !info.IsDir()
+}
+
 func expireFile(filePath string) {
-	if filePath == "" {
+	if filePath == "" || !fileExists(filePath) {
 		return
 	}
 	fileTimer := time.NewTimer(60 * time.Second)
