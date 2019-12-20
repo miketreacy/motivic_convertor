@@ -78,8 +78,10 @@ async function uploadClick(e) {
     console.log('API response from /upload/midi...');
     console.dir(data);
     loading(uploadBtn, false);
-    if (data) {
+    if (data && data.url) {
         displayDownloadButon(data.url);
+    } else {
+        window.alert(data.message)
     }
 }
 

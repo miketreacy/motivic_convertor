@@ -34,7 +34,7 @@ func convertMIDIFileToWAVFile(inputFileName string, outputFilePath string, wf st
 	success := false
 	// parse the MIDI file to Motivic format
 	motifs, err := parseMIDIFile(inputFileName)
-	if err != nil {
+	if err != nil || len(motifs) == 0 {
 		fmt.Println("ERROR: parseMIDIFile", err)
 		c <- success
 		return
@@ -73,31 +73,40 @@ func convertMIDIFileToWAVFile(inputFileName string, outputFilePath string, wf st
 
 // take a MIDI file on disk and return parsed music events (Motivic.Motif format)
 func parseMIDIFile(filePath string) ([]Motif, error) {
+	var parsedTracks []Motif
+	var err error = nil
+	defer func() {
+		if panicErr := recover(); panicErr != nil {
+			fmt.Println("Recovered in parseMIDIFile", panicErr)
+			parsedTracks = nil
+			err = errors.New("MIDI file failed to parse")
+		}
+	}()
 	f, err := os.Open(filePath)
 	if err != nil {
-		return nil, err
+		return parsedTracks, err
 	}
 	defer f.Close()
 	decodedFile := midi.NewDecoder(f)
 	if err := decodedFile.Parse(); err != nil {
-		return nil, err
+		return parsedTracks, err
 	}
-	var parsedTracks []Motif
+
 	for _, t := range decodedFile.Tracks {
 		parsedTrack, err := parseMIDITrack(t)
 		if err != nil {
 			fmt.Println("ERROR parsing track", err)
-			return nil, err
+			return parsedTracks, err
 		}
 		parsedTracks = append(parsedTracks, parsedTrack)
 	}
-	return parsedTracks, nil
+	return parsedTracks, err
 }
 
 func parseMIDITrack(track *midi.Track) (Motif, error) {
 	// serialize midi.Track to Motivic.Motif
 	// TODO: remove hardcoded time signature - parse from MIDI file
-	fmt.Printf("\n*midi.Track: \t%+v\n", track)
+	fmt.Printf("\n*midi.Track: \t%+v\n\n", track)
 	printReflectionInfo(track)
 	m := Motif{}
 	if track == nil {
