@@ -178,7 +178,6 @@ func conversionResponse(w http.ResponseWriter, outputFilePath string, fileName s
 
 // REST API to accept files for conversion
 // TODO: handle polyphonic MIDI - support or return helpful exception response
-// TODO: clean up error-handling for http - refactor panic() to error responses
 // TODO: increase conversion types:
 // 		Motivic.json file => MIDI
 // 		Motivic JSON payload => MIDI

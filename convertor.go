@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -71,6 +72,39 @@ func convertMIDIFileToWAVFile(inputFileName string, outputFilePath string, wf st
 	return
 }
 
+// take a JSON file on disk and return parsed music events (Motivic.Motif format)
+func parseJSONFile(filePath string) ([]Motif, error) {
+	var parsedTracks []Motif
+	var err error = nil
+	defer func() {
+		if panicErr := recover(); panicErr != nil {
+			fmt.Println("Recovered in parseJSONFile", panicErr)
+			parsedTracks = nil
+			err = errors.New("JSON file failed to parse")
+		}
+	}()
+	file, err := os.Open(filePath)
+	if err != nil {
+		return parsedTracks, err
+	}
+	defer file.Close()
+
+	decoder := json.NewDecoder(file)
+
+	parsedJSON := []map[string]interface{}{}
+
+	// Read the array open bracket
+	decoder.Token()
+
+	data := map[string]interface{}{}
+	for decoder.More() {
+		decoder.Decode(&data)
+		parsedJSON = append(parsedJSON, data)
+	}
+	// TODO: convert parsed JSON to Motif tracks
+	return parsedTracks, err
+}
+
 // take a MIDI file on disk and return parsed music events (Motivic.Motif format)
 func parseMIDIFile(filePath string) ([]Motif, error) {
 	var parsedTracks []Motif
@@ -82,12 +116,12 @@ func parseMIDIFile(filePath string) ([]Motif, error) {
 			err = errors.New("MIDI file failed to parse")
 		}
 	}()
-	f, err := os.Open(filePath)
+	file, err := os.Open(filePath)
 	if err != nil {
 		return parsedTracks, err
 	}
-	defer f.Close()
-	decodedFile := midi.NewDecoder(f)
+	defer file.Close()
+	decodedFile := midi.NewDecoder(file)
 	if err := decodedFile.Parse(); err != nil {
 		return parsedTracks, err
 	}
@@ -271,6 +305,10 @@ func encodeMIDIFile(bufs []audio.FloatBuffer, w io.WriteSeeker) {
 	// TODO: write this
 }
 
-func encodeJSONFile(bufs []audio.FloatBuffer, w io.WriteSeeker) {
+func encodeJSONFile(jsonData []byte, filePath string) {
 	// TODO: write this
+	file, _ := os.OpenFile(filePath, os.O_CREATE, os.ModePerm)
+	defer file.Close()
+	encoder := json.NewEncoder(file)
+	encoder.Encode(jsonData)
 }

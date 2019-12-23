@@ -149,6 +149,8 @@ func runCLIApp() {
 	c := make(chan bool)
 	go convertMIDIFileToWAVFile(inputFilePath, outputFilePath, wf, c)
 	<-c
+	go expireFile(inputFilePath)
+	go expireFile(outputFilePath)
 }
 
 func main() {

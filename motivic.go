@@ -9,9 +9,9 @@ import (
 
 // Pitch : scientific notation pitch
 type Pitch struct {
-	Name   string
-	Octave int
-	Value  int
+	Name   string `json:"name"`
+	Octave int    `json:"octave"`
+	Value  int    `json:"value"`
 }
 
 // Note : Motivic.Note class
@@ -46,22 +46,22 @@ type MotifNote struct {
 
 // Tempo : Motivic.Tempo class
 type Tempo struct {
-	Type  string
-	Units int
+	Type  string `json:"type"`
+	Units int    `json:"units"`
 }
 
 // TimeSignature : Motivic.TimeSignature class
 type TimeSignature struct {
-	Beat int
-	Unit int
+	Beat int `json:"beat"`
+	Unit int `json:"unit"`
 }
 
 // Motif : Motivic.Motif melody class
 type Motif struct {
-	ID   string
-	Name string
-	Key  string
-	Mode string
+	ID   string `json:"id"`
+	Name string `json:"name"`
+	Key  string `json:"key"`
+	Mode string `json:"mode"`
 	Tempo
 	TimeSignature
 	Notes []MotifNote
