@@ -58,7 +58,7 @@ func getRandomString(length int) string {
 
 func getFilePathFromName(dir string, key string, fileName string, fileType string) (string, string) {
 	encodedName := key + "_" + fileName + "." + fileType
-	encodedFilePath := "./" + dir + "/" + encodedName
+	encodedFilePath := dir + encodedName
 	return encodedFilePath, encodedName
 }
 

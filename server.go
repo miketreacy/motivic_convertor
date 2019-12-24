@@ -17,7 +17,8 @@ import (
 const protocol string = "http"
 const domain string = "localhost"
 const port string = "8080"
-
+const inputFileDir string = "./input/"
+const outputFileDir string = "./output/"
 const maxUploadSizeMb int64 = 10
 
 // 10 MB expressed with bitwise operator
@@ -138,6 +139,8 @@ func saveFile(file multipart.File, handle *multipart.FileHeader, filePath string
 		fmt.Println(err)
 		return
 	}
+	// ignore error if dir already exists
+	_ = os.Mkdir(inputFileDir, 0777)
 	err = ioutil.WriteFile(filePath, data, 0666)
 	if err != nil {
 		fmt.Println(err)
@@ -211,7 +214,7 @@ func midiFileUploadHandler(w http.ResponseWriter, r *http.Request) {
 
 	// 2. SAVE UPLOADED MIDI FILE TO DISK
 	randomString := getRandomString(8)
-	inputFilePath := "input/" + randomString + "_" + midiFileHandle.Filename
+	inputFilePath := inputFileDir + randomString + "_" + midiFileHandle.Filename
 	saveFile(midiFile, midiFileHandle, inputFilePath)
 	go expireFile(inputFilePath)
 
@@ -219,7 +222,7 @@ func midiFileUploadHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("Converting copied file...")
 	waveFormName := r.Form.Get("myWaveForm")
 	outputFileName := r.Form.Get("wavFileName")
-	wavFileoutputFilePath, _ := getFilePathFromName("output", randomString, outputFileName, "wav")
+	wavFileoutputFilePath, _ := getFilePathFromName(outputFileDir, randomString, outputFileName, "wav")
 	// channel to wait for go routine response
 	c := make(chan bool)
 	go convertMIDIFileToWAVFile(inputFilePath, wavFileoutputFilePath, waveFormName, c)
@@ -230,7 +233,7 @@ func midiFileUploadHandler(w http.ResponseWriter, r *http.Request) {
 	var zipFileOutputPath string = ""
 	var zipFileName string = ""
 	if success {
-		zipFileOutputPath, zipFileName = getFilePathFromName("output", randomString, outputFileName, "zip")
+		zipFileOutputPath, zipFileName = getFilePathFromName(outputFileDir, randomString, outputFileName, "zip")
 		filesToZip := []string{wavFileoutputFilePath}
 		if err := zipFiles(zipFileOutputPath, filesToZip, randomString); err != nil {
 			panic(err)
@@ -247,7 +250,7 @@ func fileDownloadHandler(w http.ResponseWriter, r *http.Request) {
 	if len(fileName) == 1 {
 		fileName := fileName[0]
 		userFileName := strings.Split(fileName, "_")[1]
-		downloadFilePath := "./output/" + fileName
+		downloadFilePath := outputFileDir + fileName
 		if fileExists(downloadFilePath) {
 			serveDownloadFile(w, r, downloadFilePath, userFileName)
 		} else {

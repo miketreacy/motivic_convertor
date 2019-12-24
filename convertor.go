@@ -54,6 +54,8 @@ func convertMIDIFileToWAVFile(inputFileName string, outputFilePath string, wf st
 
 	// convert Motif to audio buffers
 	motifBuffers := motifAudioMap(motif, wf)
+	// ignore error if dir already exists
+	_ = os.Mkdir(outputFileDir, 0777)
 	// generate the audio file
 	outputFile, err := os.Create(outputFilePath)
 	if err != nil {
