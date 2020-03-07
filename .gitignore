@@ -24,3 +24,7 @@ input/*
 
 # app binary output
 output/*
+
+# deployment config
+now.json
+rules.json
